@@ -1,2 +1,6 @@
 # settings file for sloggin plugin
+GITREPO["slogging"]=${SLOGGING_REPO:-${GIT_BASE}/openstack/slogging.git}
+GITBRANCH["slogging"]=${SLOGGING_BRANCH:-master}
+GITDIR["slogging"]=$DEST/slogging
+
 enable_service slogging
