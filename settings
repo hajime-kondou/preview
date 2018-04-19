@@ -1,6 +1,7 @@
 # settings file for sloggin plugin
-GITREPO["slogging"]=${SLOGGING_REPO:-${GIT_BASE}/openstack/slogging.git}
-GITBRANCH["slogging"]=${SLOGGING_BRANCH:-master}
-GITDIR["slogging"]=$DEST/slogging
+tempuser="test:tester"
+temppass="testing"
+temptenant="TEMPAUTH_test"
+auth_url="http://127.0.0.1:8080/auth/v1.0"
 
 enable_service slogging
