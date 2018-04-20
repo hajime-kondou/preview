@@ -37,7 +37,9 @@ function configure_slogging {
     local rsyslog_conf="rsyslog.d/10-swift.conf"
 
     # Set config
-    [ -f "/etc/${rsyslog_conf}" ] || cp ${saio_base}/${rsyslog_conf} /etc/${rsyslog_conf}
+    if [ ! -f "/etc/${rsyslog_conf}" ]; then
+        sudo cp ${saio_base}/${rsyslog_conf} /etc/${rsyslog_conf}
+    fi
     sudo sed -i -e 's#/var/log/swift#'$DEST'/data/swift/logs#g' /etc/${rsyslog_conf}
     sudo sed -i -e 's/#\$templat/$templat/g' -e 's/#local1\./local1./g' /etc/${rsyslog_conf}
     sudo sed -e '/PrivDropToGroup/c $PrivDropToGroup adm' /etc/rsyslog.conf
@@ -45,22 +47,21 @@ function configure_slogging {
     # Set directory
     sudo mkdir -p $DEST/data/swift/logs/hourly
     sudo chown -R $STACK_USER.adm $DEST/data/swift
-    # sudo chown -R syslog.adm $DEST/data/swift
     sudo chmod 775 $DEST/data/swift/logs $DEST/data/swift/logs/hourly
+    sudo usermod -a -G adm syslog
+    sudo usermod -a -G adm $STACK_USER
 
     # Reflect daemon
     sudo service rsyslog restart
 
     #
-    sudo usermod -a -G adm syslog
-    sudo usermod -a -G adm $STACK_USER
     cat << EOS | sudo tee /etc/swift/log-processor.conf
 [log-processor]
-swift_account = $temptenant
-user = stack
+swift_account = ${SLOGGING['tempaccount']}
+user = $STACK_USER
 
 [log-processor-access]
-swift_account = $temptenant
+swift_account = ${SLOGGING['tempaccount']}
 container_name = log_data
 log_dir = $DEST/data/swift/logs/hourly/
 source_filename_pattern = ^
@@ -73,51 +74,50 @@ class_path = slogging.access_processor.AccessLogProcessor
 user = stack
 
 [log-processor-stats]
-swift_account = $temptenant
+swift_account = ${SLOGGING['tempaccount']}
 container_name = account_stats
 log_dir = $DEST/data/swift/logs/stats/
 class_path = slogging.stats_processor.StatsLogProcessor
 devices = $DEST/data/swift/1/node
 mount_check = false
-user = stack
+user = $STACK_USER
 
 [log-processor-container-stats]
-swift_account = $temptenant
+swift_account = ${SLOGGING['tempaccount']}
 container_name = container_stats
 log_dir = $DEST/data/swift/logs/stats/
 class_path = slogging.stats_processor.StatsLogProcessor
 processable = false
 devices = $DEST/data/swift/1/node
 mount_check = false
-user = stack
+user = $STACK_USER
 EOS
     iniset $SWIFT_CONFIG_PROXY_SERVER app:proxy-server log_facility LOG_LOCAL1
 }
 
 function _get_token_and_endpoint {
-    # ${1}: user, ${2}: pass, ${3}: auth_url
-
-    curl -v -H "X-Storage-User:${tempuser}" \
-            -H "X-Storage-Pass:${temppass}" ${auth_url} 2>&1 | \
+    curl -v -H "X-Storage-User:${SLOGGING['tempuser']}" \
+            -H "X-Storage-Pass:${SLOGGING['temppass']}" \
+               ${SLOGGING['auth_url']} 2>&1 | \
     egrep 'X-Storage-Url:|X-Auth-Token:' | \
     sed -e 's#: #=#g' -e 's#<##g' -e 's#\-#_#g' -e 's#\r##g'
 }
 
 function verify_swift {
     # Internal proxy(identity) API
-    for var in $(_get_token_and_endpoint); do
-        export ${var}
-    done
+    for var in $(_get_token_and_endpoint); do export ${var}; done
     curl -v -H "X-Auth-Token: ${X_Auth_Token}" ${X_Storage_Url}
 
     # Swift API
     local retry=3
     local interval=5
     for i in {1..${retry}}; do
-        (for envvar in $(set | awk -F'=' '/^OS_/{print $1}'); do
-            unset ${envvar}
+        (for envvar in $(set | awk -F'=' '/^OS_/{print $1}'); do 
+             unset ${envvar}
          done
-         swift -A ${auth_url} -U ${tempuser} -K ${temppass} stat
+         swift -A ${SLOGGING['auth_url']} \
+               -U ${SLOGGING['tempuser']} \
+               -K ${SLOGGING['temppass']} stat
         ) && return 0
         sleep ${interval}
     done
@@ -125,9 +125,6 @@ function verify_swift {
 }
 
 function test-config_slogging {
-    echo_summary "Swift's Unit Test"
-    $DEST/swift/.unittests
-
     echo_summary "Swift's Function Test"
     $DEST/swift/.functests
 }
