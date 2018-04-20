@@ -26,6 +26,23 @@
 # - test-config_slogging
 
 
+function _get_token_and_endpoint {
+    curl -v -H "X-Storage-User:${SLOGGING['tempuser']}" \
+            -H "X-Storage-Pass:${SLOGGING['temppass']}" \
+               ${SLOGGING['auth_url']} 2>&1 | \
+    egrep 'X-Storage-Url:|X-Auth-Token:' | \
+    sed -e 's#: #=#g' -e 's#<##g' -e 's#\-#_#g' -e 's#\r##g'
+}
+
+function _exec_swift_api {
+    for envvar in $(set | awk -F'=' '/^OS_/{print $1}'); do
+        unset ${envvar}
+    done
+    swift -A ${SLOGGING['auth_url']} \
+          -U ${SLOGGING['tempuser']} \
+          -K ${SLOGGING['temppass']} stat
+}
+
 function install_slogging {
     pushd $DEST/slogging && {
         sudo python setup.py install
@@ -95,14 +112,6 @@ EOS
     iniset $SWIFT_CONFIG_PROXY_SERVER app:proxy-server log_facility LOG_LOCAL1
 }
 
-function _get_token_and_endpoint {
-    curl -v -H "X-Storage-User:${SLOGGING['tempuser']}" \
-            -H "X-Storage-Pass:${SLOGGING['temppass']}" \
-               ${SLOGGING['auth_url']} 2>&1 | \
-    egrep 'X-Storage-Url:|X-Auth-Token:' | \
-    sed -e 's#: #=#g' -e 's#<##g' -e 's#\-#_#g' -e 's#\r##g'
-}
-
 function verify_swift {
     # Internal proxy(identity) API
     for var in $(_get_token_and_endpoint); do export ${var}; done
@@ -112,13 +121,7 @@ function verify_swift {
     local retry=3
     local interval=5
     for i in {1..${retry}}; do
-        (for envvar in $(set | awk -F'=' '/^OS_/{print $1}'); do 
-             unset ${envvar}
-         done
-         swift -A ${SLOGGING['auth_url']} \
-               -U ${SLOGGING['tempuser']} \
-               -K ${SLOGGING['temppass']} stat
-        ) && return 0
+        (_exec_swift_api) && return 0
         sleep ${interval}
     done
     return -1
