@@ -1,0 +1,1 @@
+30 * * * * STACK_USER /usr/local/bin/swift-log-stats-collector /etc/swift/log-processor.conf 

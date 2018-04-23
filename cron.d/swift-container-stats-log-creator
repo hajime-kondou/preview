@@ -1,0 +1,1 @@
+5 * * * * STACK_USER /usr/local/bin/swift-container-stats-logger /etc/swift/log-processor.conf 

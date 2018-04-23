@@ -71,45 +71,19 @@ function configure_slogging {
     # Reflect daemon
     sudo service rsyslog restart
 
-    #
-    cat << EOS | sudo tee /etc/swift/log-processor.conf
-[log-processor]
-swift_account = ${SLOGGING['tempaccount']}
-user = $STACK_USER
+    # Generate /etc/swift/log-processor.conf
+    sudo cp $DEST/slogging/devstack/log-processor.conf /etc/swift/
+    sudo sed -i -e "s#TEMPACCOUNT#${SLOGGING['tempaccount']}#g" /etc/swift/log-processor.conf
+    sudo sed -i -e "s#DEST#$DEST#g" /etc/swift/log-processor.conf
+    sudo sed -i -e "s#STACK_USER#$STACK_USER#g" /etc/swift/log-processor.conf
 
-[log-processor-access]
-swift_account = ${SLOGGING['tempaccount']}
-container_name = log_data
-log_dir = $DEST/data/swift/logs/hourly/
-source_filename_pattern = ^
-    (?P<year>[0-9]{4})
-    (?P<month>[0-1][0-9])
-    (?P<day>[0-3][0-9])
-    (?P<hour>[0-2][0-9])
-    .*$
-class_path = slogging.access_processor.AccessLogProcessor
-user = stack
-
-[log-processor-stats]
-swift_account = ${SLOGGING['tempaccount']}
-container_name = account_stats
-log_dir = $DEST/data/swift/logs/stats/
-class_path = slogging.stats_processor.StatsLogProcessor
-devices = $DEST/data/swift/1/node
-mount_check = false
-user = $STACK_USER
-
-[log-processor-container-stats]
-swift_account = ${SLOGGING['tempaccount']}
-container_name = container_stats
-log_dir = $DEST/data/swift/logs/stats/
-class_path = slogging.stats_processor.StatsLogProcessor
-processable = false
-devices = $DEST/data/swift/1/node
-mount_check = false
-user = $STACK_USER
-EOS
     iniset $SWIFT_CONFIG_PROXY_SERVER app:proxy-server log_facility LOG_LOCAL1
+
+    # Set cron
+    if [ "${SLOGGING_CRON}" == "True" ]; then
+        sudo cp $DEST/slogging/devstack/cron.d/* /etc/cron.d/
+        sudo sed -i -e "s#STACK_USER#$STACK_USER#g" /etc/cron.d/*
+    fi
 }
 
 function verify_swift {
@@ -121,7 +95,7 @@ function verify_swift {
     local retry=3
     local interval=5
     for i in {1..${retry}}; do
-        (_exec_swift_api) && return 0
+        ( _exec_swift_api ) && return 0
         sleep ${interval}
     done
     return -1

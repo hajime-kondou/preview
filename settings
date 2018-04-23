@@ -1,5 +1,4 @@
 # settings file for sloggin plugin
-
 declare -A -g SLOGGING
 SLOGGING['tempuser']="test:tester"
 SLOGGING['temppass']="testing"
