@@ -1,31 +1,29 @@
-This directory contains the Slogging DevStack plugin.
+===============================
+Enabling Slogging in DevStack
+===============================
 
-To configure Slogging with DevStack, you will need to enable this plugin and
-the Slogging service by adding one line to the [[local|localrc]] section of
-your local.conf file.
+1. Download Devstack::
 
-To enable the plugin, add a line of the form::
+    git clone https://git.openstack.org/openstack-dev/devstack
+    cd devstack
 
-    enable_plugin slogging <GITURL> [GITREF]
+2. Add this repo as an external repository in ``local.conf`` file::
 
-where::
+    [[local|localrc]]
+    enable_plugin slogging https://git.openstack.org/openstack/slogging
 
-    <GITURL> is the URL of a Slogging repository
-    [GITREF] is an optional git ref (branch/ref/tag).  The default is master.
+   To use stable branches, make sure devstack is on that branch, and specify
+   the branch name to enable_plugin, for example::
 
-For example::
+    [[local|localrc]]
+    enable_plugin slogging https://git.openstack.org/openstack/slogging stable/juno
 
-    enable_plugin slogging https://git.openstack.org/openstack/slogging stable/rocky
+   In case triggered by cron, set environ variable ``SLOGGING_CRON``::
 
-.. note::
+    [[local|localrc]]
+    SLOGGING_CRON=True
 
-    You also need to install Swift itself into DevStack to use Slogging::
-
-        enable_service s-proxy s-account s-object s-container
-
-Install DevStack::
+3. Run ``stack.sh``::
 
     ./stack.sh
-
-For more information, see the "Externally Hosted Plugins" section of
-https://docs.openstack.org/devstack/latest/plugins.html
+    
