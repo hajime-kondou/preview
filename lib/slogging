@@ -25,13 +25,12 @@
 # - verify_swift
 # - test-config_slogging
 
-
 function _get_token_and_endpoint {
     curl -v -H "X-Storage-User:${SLOGGING['tempuser']}" \
             -H "X-Storage-Pass:${SLOGGING['temppass']}" \
                ${SLOGGING['auth_url']} 2>&1 | \
     egrep 'X-Storage-Url:|X-Auth-Token:' | \
-    sed -e 's#: #=#g' -e 's#<##g' -e 's#\-#_#g' -e 's#\r##g'
+    sed -e 's,: ,=,g' -e 's,<,,g' -e 's,\-,_,g' -e 's,\r,,g'
 }
 
 function _exec_swift_api {
@@ -57,32 +56,32 @@ function configure_slogging {
     if [ ! -f "/etc/${rsyslog_conf}" ]; then
         sudo cp ${saio_base}/${rsyslog_conf} /etc/${rsyslog_conf}
     fi
-    sudo sed -i -e 's#/var/log/swift#'$DEST'/data/swift/logs#g' /etc/${rsyslog_conf}
-    sudo sed -i -e 's/#\$templat/$templat/g' -e 's/#local1\./local1./g' /etc/${rsyslog_conf}
+    sudo sed -i -e "s,/var/log/swift,$DEST/data/swift/logs,g" /etc/${rsyslog_conf}
+    sudo sed -i -e 's,#\$templat,$templat,g' -e 's,#local1\.,local1.,g' /etc/${rsyslog_conf}
     sudo sed -e '/PrivDropToGroup/c $PrivDropToGroup adm' /etc/rsyslog.conf
 
     # Set directory
     sudo mkdir -p $DEST/data/swift/logs/hourly
-    sudo chown -R $STACK_USER.adm $DEST/data/swift
-    sudo chmod 775 $DEST/data/swift/logs $DEST/data/swift/logs/hourly
-    sudo usermod -a -G adm syslog
-    sudo usermod -a -G adm $STACK_USER
+    safe_chown -R $STACK_USER.adm $DEST/data/swift
+    safe_chmod 775 $DEST/data/swift/logs $DEST/data/swift/logs/hourly
+    add_user_to_group syslog adm
+    add_user_to_group $STACK_USER adm
 
     # Reflect daemon
-    sudo service rsyslog restart
+    restart_service rsyslog
 
     # Generate /etc/swift/log-processor.conf
-    sudo cp $DEST/slogging/devstack/log-processor.conf /etc/swift/
-    sudo sed -i -e "s#TEMPACCOUNT#${SLOGGING['tempaccount']}#g" /etc/swift/log-processor.conf
-    sudo sed -i -e "s#DEST#$DEST#g" /etc/swift/log-processor.conf
-    sudo sed -i -e "s#STACK_USER#$STACK_USER#g" /etc/swift/log-processor.conf
+    sudo cp $DEST/slogging/devstack/files/log-processor.conf /etc/swift/
+    sudo sed -i -e "s,%TEMPACCOUNT%,${SLOGGING['tempaccount']},g" /etc/swift/log-processor.conf
+    sudo sed -i -e "s,%DEST%,$DEST,g" /etc/swift/log-processor.conf
+    sudo sed -i -e "s,%STACK_USER%,$STACK_USER,g" /etc/swift/log-processor.conf
 
     iniset $SWIFT_CONFIG_PROXY_SERVER app:proxy-server log_facility LOG_LOCAL1
 
     # Set cron
     if [ "${SLOGGING_CRON}" == "True" ]; then
-        sudo cp $DEST/slogging/devstack/cron.d/* /etc/cron.d/
-        sudo sed -i -e "s#STACK_USER#$STACK_USER#g" /etc/cron.d/*
+        sudo cp $DEST/slogging/devstack/files/cron.d/* /etc/cron.d/
+        sudo sed -i -e "s,%STACK_USER%,$STACK_USER,g" /etc/cron.d/*
     fi
 }
 

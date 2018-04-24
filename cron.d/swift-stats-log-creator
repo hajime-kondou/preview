@@ -1,1 +1,0 @@
-0 * * * * STACK_USER /usr/local/bin/swift-account-stats-logger /etc/swift/log-processor.conf 
