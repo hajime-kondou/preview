@@ -1,0 +1,22 @@
+--- /opt/stack/slogging/slogging/internal_proxy.py	2018-04-25 19:50:13.801755868 +0900
++++ internal_proxy.py	2018-04-25 19:49:52.440110595 +0900
+@@ -15,7 +15,7 @@
+ 
+ from json import loads as json_loads
+ from slogging.compressing_file_reader import CompressingFileReader
+-from swift.common import swob
++from swift.common import swob, utils
+ from swift.proxy.server import Application
+ from urllib import quote
+ 
+@@ -93,7 +93,9 @@
+         if not self.create_container(account, container):
+             return False
+ 
+-        send_headers = {'Transfer-Encoding': 'chunked'}
++        timestamp = utils.Timestamp.now().internal
++        send_headers = {'Transfer-Encoding': 'chunked',
++                        'X-Timestamp': timestamp}
+         if headers:
+             send_headers.update(headers)
+ 

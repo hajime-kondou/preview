@@ -18,8 +18,9 @@ if is_plugin_enabled slogging; then
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         # Perform installation of service source  # python setup.py install
-        echo_summary "Installing Slogging"
-        install_slogging
+        #echo_summary "Installing Slogging"
+        #install_slogging
+        :
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         # Configure after the other layer 1 and 2 services have been configured
@@ -28,13 +29,13 @@ if is_plugin_enabled slogging; then
 
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
         # Initialize and start the
-        echo_summary "Verifying Swift installed normally"
+        echo_summary "Verifying Swift nomally installed"
         verify_swift
 
     elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         # Unit & Function test for slogging to get swift log
-        echo_summary "Testing Swift for Slogging"
-        test-config_slogging
+        echo_summary "Metering Sample with Swift"
+        metering-sample_slogging
     fi
 
     if [[ "$1" == "unstack" ]]; then

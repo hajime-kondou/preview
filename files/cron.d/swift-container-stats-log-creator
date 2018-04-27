@@ -1,1 +1,1 @@
-5 * * * * %STACK_USER% /usr/local/bin/swift-container-stats-logger /etc/swift/log-processor.conf 
+5 * * * * %STACK_USER% export PYTHONPATH=$PYTHONPATH:%SLOGGING_BASE%; %SLOGGING_BASE%/bin/swift-container-stats-logger %SLOGGING_BASE%/etc/log-processor.conf 
