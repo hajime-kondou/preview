@@ -1,0 +1,225 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Running the slogging on SAIO(Swift All In One) &mdash; slogging 1.2.2 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="slogging 1.2.2 documentation" href="../README.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="running-the-slogging-on-saio-swift-all-in-one">
+<h1>Running the slogging on SAIO(Swift All In One)<a class="headerlink" href="#running-the-slogging-on-saio-swift-all-in-one" title="Permalink to this headline">¶</a></h1>
+<p>This page shows you how to install slogging on SAIO(Swift All In One)
+environment.</p>
+<ol class="arabic">
+<li><p class="first">Create a swift account to use for storing stats information, and note the
+account hash. The hash will be used in config files.</p>
+</li>
+<li><p class="first">Edit <code class="docutils literal"><span class="pre">/etc/rsyslog.d/10-swift.conf</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre># Uncomment the following to have a log containing all logs together
+#local1,local2,local3,local4,local5.*   /var/log/swift/all.log
+
+$template HourlyProxyLog,&quot;/var/log/swift/hourly/%$YEAR%%$MONTH%%$DAY%%$HOUR%&quot;
+local1.*;local1.!notice ?HourlyProxyLog
+
+local1.*;local1.!notice /var/log/swift/proxy.log
+local1.notice           /var/log/swift/proxy.error
+local1.*                ~
+</pre></div>
+</div>
+</li>
+<li><p class="first">On <cite>Debian/Ubuntu</cite>,  edit <code class="docutils literal"><span class="pre">/etc/rsyslog.conf</span></code> and make the following change:</p>
+<div class="highlight-python"><div class="highlight"><pre>$PrivDropToGroup adm
+</pre></div>
+</div>
+</li>
+<li><p class="first"><code class="docutils literal"><span class="pre">mkdir</span> <span class="pre">-p</span> <span class="pre">/var/log/swift/hourly</span></code></p>
+</li>
+<li><p class="first">On <cite>Debian/Ubuntu</cite>,  <code class="docutils literal"><span class="pre">chown</span> <span class="pre">-R</span> <span class="pre">syslog.adm</span> <span class="pre">/var/log/swift</span></code></p>
+</li>
+<li><p class="first"><code class="docutils literal"><span class="pre">chmod</span> <span class="pre">775</span> <span class="pre">/var/log/swift</span> <span class="pre">/var/log/swift/hourly</span></code></p>
+</li>
+<li><p class="first"><code class="docutils literal"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">rsyslog</span></code></p>
+</li>
+<li><p class="first"><code class="docutils literal"><span class="pre">usermod</span> <span class="pre">-a</span> <span class="pre">-G</span> <span class="pre">adm</span> <span class="pre">&lt;your-user-name&gt;</span></code></p>
+</li>
+<li><p class="first">Relogin to let the group change take effect.</p>
+</li>
+<li><p class="first">Create <code class="docutils literal"><span class="pre">/etc/swift/log-processor.conf</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>[DEFAULT]
+swift_account = &lt;your-stats-account-hash&gt;
+user = &lt;your-user-name&gt;
+new_log_cutoff = &lt;log-cutoff-sec&gt;
+
+[log-processor]
+container_name = log_processing_data
+format_type = csv
+
+[log-processor-access]
+container_name = log_data
+log_dir = /var/log/swift/hourly/
+source_filename_pattern = ^
+    (?P&lt;year&gt;[0-9]{4})
+    (?P&lt;month&gt;[0-1][0-9])
+    (?P&lt;day&gt;[0-3][0-9])
+    (?P&lt;hour&gt;[0-2][0-9])
+    .*$
+class_path = slogging.access_processor.AccessLogProcessor
+
+[log-processor-stats]
+container_name = account_stats
+log_dir = /var/log/swift/stats/
+class_path = slogging.stats_processor.StatsLogProcessor
+devices = /srv/1/node
+mount_check = false
+
+[log-processor-container-stats]
+container_name = container_stats
+log_dir = /var/log/swift/stats/
+class_path = slogging.stats_processor.StatsLogProcessor
+processable = false
+devices = /srv/1/node
+mount_check = false
+</pre></div>
+</div>
+</li>
+<li><p class="first">Add the following under [app:proxy-server] in <code class="docutils literal"><span class="pre">/etc/swift/proxy-server.conf</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">log_facility</span> <span class="o">=</span> <span class="n">LOG_LOCAL1</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Run the following command to get slogging installed path.:</p>
+<blockquote>
+<div><p><code class="docutils literal"><span class="pre">dirname</span> <span class="pre">$(which</span> <span class="pre">swift-log-uploader)</span></code></p>
+</div></blockquote>
+<p>The <code class="docutils literal"><span class="pre">&lt;installed-path&gt;</span></code> on cron.d/* below shall be replaced with the above results.</p>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to create the stats logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-stats-log-creator</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>0 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-account-stats-logger /etc/swift/log-processor.conf
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to create the container stats logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-container-stats-log-creator</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>5 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-container-stats-logger /etc/swift/log-processor.conf
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to upload the stats logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-stats-log-uploader</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>10 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf stats
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to upload the stats logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-stats-log-uploader</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>15 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf container-stats
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to upload the access logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-access-log-uploader</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>5 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf access
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a <code class="docutils literal"><span class="pre">cron</span></code> job to run once per hour to process the logs. In
+<code class="docutils literal"><span class="pre">/etc/cron.d/swift-stats-processor</span></code>:</p>
+<div class="highlight-python"><div class="highlight"><pre>30 * * * * &lt;your-user-name&gt; &lt;installed-path&gt;/swift-log-stats-collector /etc/swift/log-processor.conf
+</pre></div>
+</div>
+</li>
+</ol>
+<p>After running for a few hours, you should start to see .csv files in the
+<code class="docutils literal"><span class="pre">log_processing_data</span></code> container in the swift stats account that was created
+earlier. This file will have one entry per account per hour for each account
+with activity in that hour. One .csv file should be produced per hour. Note
+that the stats will be delayed by at least two hours by default. This can be
+changed with the <code class="docutils literal"><span class="pre">new_log_cutoff</span></code> variable in the config file. See
+<code class="docutils literal"><span class="pre">log-processor.conf-sample</span></code> for more details.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../README.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/install/run_slogging_on_saio.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Hajime Kondo.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="../_sources/install/run_slogging_on_saio.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

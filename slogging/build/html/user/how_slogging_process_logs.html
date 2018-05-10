@@ -1,0 +1,217 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How slogging process Swift’s logs &mdash; slogging 1.2.2 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="slogging 1.2.2 documentation" href="../README.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="how-slogging-process-swift-s-logs">
+<h1>How slogging process Swift&#8217;s logs<a class="headerlink" href="#how-slogging-process-swift-s-logs" title="Permalink to this headline">¶</a></h1>
+<p>This page shows you how slogging process logs on OpenStack Swift.</p>
+<div class="section" id="get-installed-path">
+<h2>Get Installed Path<a class="headerlink" href="#get-installed-path" title="Permalink to this headline">¶</a></h2>
+<p>You can run the following command to get slogging installed path.:</p>
+<div class="highlight-python"><div class="highlight"><pre>dirname $(which swift-log-uploader)
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">&lt;installed-path&gt;</span></code> on this page shall be replaced with the above results.</p>
+</div>
+<div class="section" id="log-processing-plugins">
+<h2>Log Processing plugins<a class="headerlink" href="#log-processing-plugins" title="Permalink to this headline">¶</a></h2>
+<p>slogging is written to allow a plugin to be defined for
+every log type.</p>
+<p>slogging includes plugins for both access logs and storage stats logs.</p>
+<p>Each plugin is responsible for defining, in a config section, where the logs
+are stored on disk, where the logs will be stored in swift (account and
+container), the filename format of the logs on disk, the location of the
+plugin class definition, and any plugin-specific config values.</p>
+<p>You need to define three methods for plugin.</p>
+<ul class="simple">
+<li>The <code class="docutils literal"><span class="pre">constructor</span></code>. must accept one argument (the dict representation of the plugin&#8217;s config section).</li>
+<li>The <code class="docutils literal"><span class="pre">process</span></code> method must accept an iterator, and the account, container, and object name of the log.</li>
+<li>The <code class="docutils literal"><span class="pre">keylist_mapping</span></code> accepts no parameters.</li>
+</ul>
+<p>Actually, slogging collects following logs from Swift by using plugins.</p>
+</div>
+<div class="section" id="log-uploading">
+<h2>Log Uploading<a class="headerlink" href="#log-uploading" title="Permalink to this headline">¶</a></h2>
+<p>As a first step to collect stats data from Swift, you need to use <code class="docutils literal"><span class="pre">swift-log-uploader</span></code>.
+Basically there are three kind of logs.</p>
+<ul class="simple">
+<li><a class="reference internal" href="#access-logs"><span>Access Logs</span></a></li>
+<li><a class="reference internal" href="#stats-logs"><span>Account Logs</span></a></li>
+<li><a class="reference internal" href="#stats-logs"><span>Container DB Stats Logs</span></a></li>
+</ul>
+<p>You can pass plugin&#8217;s name as argument of <code class="docutils literal"><span class="pre">swift-log-uploader</span></code> like following.:</p>
+<div class="highlight-python"><div class="highlight"><pre>&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf access
+&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf stats
+&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf container-stats
+</pre></div>
+</div>
+<p>You can set above command as cron job so that you can collect those kind of logs in regular basis.</p>
+<p><code class="docutils literal"><span class="pre">swift-log-uploader</span></code> receive a config file and a plugin name(access,
+container-stats, stats) through above settings.
+Then it finds the log files on disk according to the plugin config section and
+uploads them to the swift cluster as source data for <a class="reference internal" href="#log-processing"><span>Log Processing</span></a>.</p>
+<p>This means one uploader process will run on each proxy server node and each
+account server node.
+To not upload partially-written log files, the uploader will not upload files
+with an mtime of less than two hours ago.</p>
+<div class="section" id="access-logs">
+<span id="id1"></span><h3>Access Logs<a class="headerlink" href="#access-logs" title="Permalink to this headline">¶</a></h3>
+<p>Access logs means the proxy server logs.</p>
+<p>For example, a proxy request that is made on August 4, 2010 at 12:37 gets
+logged in a file named 2010080412.</p>
+<p>This allows easy log rotation and easy per-hour log processing.</p>
+<p>To upload access logs, you can set cron like following:</p>
+<div class="highlight-python"><div class="highlight"><pre>&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf access
+</pre></div>
+</div>
+</div>
+<div class="section" id="account-container-db-stats-logs">
+<span id="stats-logs"></span><h3>Account / Container DB Stats Logs<a class="headerlink" href="#account-container-db-stats-logs" title="Permalink to this headline">¶</a></h3>
+<p>You can use <code class="docutils literal"><span class="pre">swift-account-stats-logger</span></code> and <code class="docutils literal"><span class="pre">swift-container-stats-logger</span></code>
+to collect Account / Container DB stats logs:</p>
+<p><code class="docutils literal"><span class="pre">swift-account-stats-logger</span></code> runs on each account server (via cron) and
+walks the filesystem looking for account databases. When an account database
+is found, the logger selects the account hash, bytes_used, container_count,
+and object_count. These values are then written out as one line in a csv file.</p>
+<p>One csv file is produced for every run of <code class="docutils literal"><span class="pre">swift-account-stats-logger</span></code>.
+This means that, system wide, one csv file is produced for every storage node.
+Rackspace runs the account stats logger every hour.</p>
+<p>If you run account stats logger in every hour and if you have ten account servers,
+ten csv files are produced every hour. Also, every account will have one
+entry for every replica in the system. On average, there will be three copies
+of each account in the aggregate of all account stat csv files created in one
+system-wide run.</p>
+<p>The <code class="docutils literal"><span class="pre">swift-container-stats-logger</span></code> runs in a similar fashion, scanning
+the container dbs.</p>
+<p>To upload account stats logs and container stats logs, you can set cron like following:</p>
+<div class="highlight-python"><div class="highlight"><pre>&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf container-stats
+&lt;installed-path&gt;/swift-log-uploader /etc/swift/log-processor.conf stats
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="log-processing">
+<span id="id2"></span><h2>Log Processing<a class="headerlink" href="#log-processing" title="Permalink to this headline">¶</a></h2>
+<p>Log Processing is a kind of final process to create total stats data.</p>
+<p><code class="docutils literal"><span class="pre">swift-log-stats-collector</span></code> accepts a config file and generates a csv
+that is uploaded to swift.</p>
+<p>It loads all plugins defined in the config file,
+generates a list of all log files in swift that need to be processed,
+and passes an iterable of the log file data to the appropriate plugin&#8217;s
+process method.
+The process method returns a dictionary of data in the log file
+keyed on (account, year, month, day, hour).
+The <code class="docutils literal"><span class="pre">log-stats-collector</span></code> process then combines all dictionaries from
+all calls to a process method into one dictionary.
+Key collisions within each (account, year, month, day, hour) dictionary are
+summed.
+Finally, the summed dictionary is mapped to the final csv values with
+each plugin&#8217;s <code class="docutils literal"><span class="pre">keylist_mapping</span></code> method.</p>
+<p>The resulting csv file has one line per (account, year, month, day, hour) for
+all log files processed in that run of <code class="docutils literal"><span class="pre">swift-log-stats-collector</span></code>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../README.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How slogging process Swift&#8217;s logs</a><ul>
+<li><a class="reference internal" href="#get-installed-path">Get Installed Path</a></li>
+<li><a class="reference internal" href="#log-processing-plugins">Log Processing plugins</a></li>
+<li><a class="reference internal" href="#log-uploading">Log Uploading</a><ul>
+<li><a class="reference internal" href="#access-logs">Access Logs</a></li>
+<li><a class="reference internal" href="#account-container-db-stats-logs">Account / Container DB Stats Logs</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#log-processing">Log Processing</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../README.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/user/how_slogging_process_logs.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Hajime Kondo.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="../_sources/user/how_slogging_process_logs.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
