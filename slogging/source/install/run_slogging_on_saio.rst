@@ -21,12 +21,12 @@ environment.
     local1.notice           /var/log/swift/proxy.error
     local1.*                ~
 
-#. On `Debian/Ubuntu`,  edit ``/etc/rsyslog.conf`` and make the following change::
+#. On *Debian/Ubuntu*,  edit ``/etc/rsyslog.conf`` and make the following change::
 
     $PrivDropToGroup adm
 
 #. ``mkdir -p /var/log/swift/hourly``
-#. On `Debian/Ubuntu`,  ``chown -R syslog.adm /var/log/swift``
+#. On *Debian/Ubuntu*,  ``chown -R syslog.adm /var/log/swift``
 #. ``chmod 775 /var/log/swift /var/log/swift/hourly``
 #. ``systemctl restart rsyslog``
 #. ``usermod -a -G adm <your-user-name>``
